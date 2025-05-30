@@ -1,0 +1,188 @@
+<% /* layout.ejs ile uyumlu, giriş gerektirir */ %>
+<div class="main-card card shadow-sm p-4 bg-white mb-5">
+  <% if (typeof error !== 'undefined' && error) { %>
+    <div class="alert alert-danger mb-3"><%= error %></div>
+  <% } %>
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h2 class="mb-0">Dosyalarım</h2>
+    <button class="btn btn-success add-file-btn" data-bs-toggle="modal" data-bs-target="#uploadModal">
+      <i class="bi bi-upload"></i> Dosya Yükle
+    </button>
+  </div>
+  <ul class="nav nav-tabs mt-4" id="fileTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="active-tab" data-bs-toggle="tab" data-bs-target="#active-files" type="button" role="tab">Aktif Dosyalar</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="deleted-tab" data-bs-toggle="tab" data-bs-target="#deleted-files" type="button" role="tab">Silinen Dosyalar</button>
+    </li>
+    <% if (user && user.isAdmin) { %>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="all-tab" data-bs-toggle="tab" data-bs-target="#all-files" type="button" role="tab">Hepsini Görüntüle</button>
+    </li>
+    <% } %>
+  </ul>
+  <div class="tab-content">
+    <!-- Aktif Dosyalar -->
+    <div class="tab-pane fade show active" id="active-files" role="tabpanel">
+      <% if (activeFiles && activeFiles.length > 0) { %>
+        <% activeFiles.forEach(function(file) { %>
+          <div class="card file-card mb-3">
+            <div class="card-body d-flex justify-content-between align-items-center">
+              <div>
+                <strong><%= file.ORIGINALNAME %></strong>
+                <% if (file.LOCKED) { %>
+                  <span class="badge bg-danger ms-2"><i class="bi bi-lock-fill"></i> Kilitli</span>
+                <% } else { %>
+                  <span class="badge bg-success ms-2"><i class="bi bi-unlock"></i> Açık</span>
+                <% } %>
+              </div>
+              <div class="d-flex gap-2">
+                <a href="/files/view/<%= file.ID %>" class="btn btn-info btn-sm" target="_blank"><i class="bi bi-eye"></i> Görüntüle</a>
+                <a href="/files/download/<%= file.ID %>" class="btn btn-success btn-sm" target="_blank"><i class="bi bi-download"></i> İndir</a>
+                <button class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#editModal<%= file.ID %>"><i class="bi bi-pencil"></i> Düzenle</button>
+                <form action="/files/delete/<%= file.ID %>" method="POST" class="d-inline">
+                  <button class="btn btn-danger btn-sm" onclick="return confirm('Silmek istediğinize emin misiniz?')"><i class="bi bi-trash"></i> Sil</button>
+                </form>
+                <form action="/files/toggle-lock/<%= file.ID %>" method="POST" class="d-inline">
+                  <button class="btn btn-secondary btn-sm">
+                    <i class="bi <%= file.LOCKED ? 'bi-unlock' : 'bi-lock' %>"></i>
+                    <%= file.LOCKED ? 'Kilit Aç' : 'Kilitle' %>
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+          <!-- Düzenle Modalı -->
+          <div class="modal fade" id="editModal<%= file.ID %>" tabindex="-1">
+            <div class="modal-dialog">
+              <form class="modal-content" action="/files/edit/<%= file.ID %>" method="POST">
+                <div class="modal-header"><h5 class="modal-title">Dosya Düzenle</h5></div>
+                <div class="modal-body">
+                  <div class="mb-2">
+                    <label>Dosya Adı</label>
+                    <input type="text" name="filename" class="form-control" value="<%= file.ORIGINALNAME %>" required>
+                  </div>
+                  <div class="mb-2">
+                    <label>Kilitli mi?</label>
+                    <select name="locked" class="form-control" required>
+                      <option value="1" <%= file.LOCKED ? 'selected' : '' %>>Evet</option>
+                      <option value="0" <%= !file.LOCKED ? 'selected' : '' %>>Hayır</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button class="btn btn-primary" type="submit">Kaydet</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        <% }); %>
+        <nav>
+          <ul class="pagination justify-content-center">
+            <% for(let i=1; i<=totalPages; i++) { %>
+              <li class="page-item <%= i === page ? 'active' : '' %>">
+                <a class="page-link" href="?page=<%= i %>"><%= i %></a>
+              </li>
+            <% } %>
+          </ul>
+        </nav>
+      <% } else { %>
+        <div class="alert alert-info mt-3">Aktif dosya yok.</div>
+      <% } %>
+    </div>
+    <!-- Silinen Dosyalar -->
+    <div class="tab-pane fade" id="deleted-files" role="tabpanel">
+      <% if (deletedFiles && deletedFiles.length > 0) { %>
+        <% deletedFiles.forEach(function(file) { %>
+          <div class="card file-card mb-3">
+            <div class="card-body d-flex justify-content-between align-items-center">
+              <div>
+                <strong><%= file.ORIGINALNAME %></strong>
+                <% if (file.LOCKED) { %>
+                  <span class="badge bg-danger ms-2"><i class="bi bi-lock-fill"></i> Kilitli</span>
+                <% } else { %>
+                  <span class="badge bg-success ms-2"><i class="bi bi-unlock"></i> Açık</span>
+                <% } %>
+              </div>
+              <div class="d-flex gap-2">
+                <form action="/files/activate/<%= file.ID %>" method="POST" class="d-inline">
+                  <button class="btn btn-success btn-sm"><i class="bi bi-arrow-clockwise"></i> Aktif Et</button>
+                </form>
+                <form action="/files/permanent-delete/<%= file.ID %>" method="POST" class="d-inline">
+                  <button class="btn btn-danger btn-sm" onclick="return confirm('Kalıcı olarak silinsin mi?')"><i class="bi bi-x-circle"></i> Kalıcı Sil</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        <% }); %>
+      <% } else { %>
+        <div class="alert alert-info mt-3">Silinen dosya yok.</div>
+      <% } %>
+    </div>
+    <!-- Hepsini Görüntüle (Sadece Admin) -->
+    <% if (user && user.isAdmin) { %>
+    <div class="tab-pane fade" id="all-files" role="tabpanel">
+      <% if (allFiles && allFiles.length > 0) { %>
+        <% allFiles.forEach(function(file) { %>
+          <div class="card file-card mb-3">
+            <div class="card-body d-flex justify-content-between align-items-center">
+              <div>
+                <strong><%= file.ORIGINALNAME %></strong>
+                <span class="badge bg-secondary ms-2"><i class="bi bi-person"></i> <%= file.ownerName %></span>
+                <% if (file.LOCKED) { %>
+                  <span class="badge bg-danger ms-2"><i class="bi bi-lock-fill"></i> Kilitli</span>
+                <% } else { %>
+                  <span class="badge bg-success ms-2"><i class="bi bi-unlock"></i> Açık</span>
+                <% } %>
+              </div>
+              <div class="d-flex gap-2">
+                <a href="/files/view/<%= file.ID %>" class="btn btn-info btn-sm" target="_blank"><i class="bi bi-eye"></i> Görüntüle</a>
+                <a href="/files/download/<%= file.ID %>" class="btn btn-success btn-sm" target="_blank"><i class="bi bi-download"></i> İndir</a>
+              </div>
+            </div>
+          </div>
+        <% }); %>
+      <% } else { %>
+        <div class="alert alert-info mt-3">Sistemde dosya yok.</div>
+      <% } %>
+    </div>
+    <% } %>
+  </div>
+</div>
+
+<!-- Dosya Yükle Modalı -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" action="/files/upload" method="POST" enctype="multipart/form-data">
+      <div class="modal-header"><h5 class="modal-title">Dosya Yükle</h5></div>
+      <div class="modal-body">
+        <div class="mb-2">
+          <label>Dosya Adı</label>
+          <input type="text" name="filename" class="form-control" required>
+        </div>
+        <div class="mb-2">
+          <label>Kilitli mi?</label>
+          <select name="locked" class="form-control" required>
+            <option value="1">Evet</option>
+            <option value="0" selected>Hayır</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label>Dosya</label>
+          <input type="file" name="file" class="form-control" accept=".jpg,.jpeg,.png,.gif,.bmp,.webp,.zip,.rar" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" type="submit">Yükle</button>
+      </div>
+    </form>
+  </div>
+</div>
+<style>
+  .main-card { max-width: 900px; margin: 60px auto; }
+  .file-card { margin-bottom: 20px; position: relative; }
+  .add-file-btn { position: absolute; top: 10px; right: 10px; z-index: 2; }
+  .card-header { background: transparent; border-bottom: none; padding-bottom: 0; }
+  .tab-content { margin-top: 30px; }
+</style>
